@@ -10,6 +10,10 @@ CATEGORY_SEP = "::"
 _FIRST_HALF_MDAYS = (31, 28, 31, 30, 31, 30)
 _SECOND_HALF_MDAYS = (31, 31, 30, 31, 30, 31)
 _MONTH_DAYS = _FIRST_HALF_MDAYS + _SECOND_HALF_MDAYS
+_DAY_PART_LEN = 2
+_MONTH_PART_LEN = 2
+_YEAR_PART_LEN = 4
+_CATEGORY_PARTS_COUNT = 2
 
 _FEBRUARY_MONTH = 2
 _FLOAT_ZERO = float(_FEBRUARY_MONTH - _FEBRUARY_MONTH)
@@ -76,7 +80,11 @@ def extract_date(maybe_dt: str) -> tuple[int, int, int] | None:
     day_str, month_str, year_str = parts
     if not (day_str.isdigit() and month_str.isdigit() and year_str.isdigit()):
         return None
-    if len(day_str) != 2 or len(month_str) != 2 or len(year_str) != 4:
+    if (
+        len(day_str) != _DAY_PART_LEN
+        or len(month_str) != _MONTH_PART_LEN
+        or len(year_str) != _YEAR_PART_LEN
+    ):
         return None
 
     day = int(day_str)
@@ -152,27 +160,26 @@ def parse_amount(raw_amount: str) -> float | None:
     if not normalized:
         return None
 
-    if normalized[0] == "-":
-        unsigned = normalized[1:]
-        if not unsigned:
-            return None
-    else:
-        unsigned = normalized
+    unsigned = normalized[1:] if normalized[0] == "-" else normalized
+    is_valid = bool(unsigned)
 
     dots_count = 0
     for symbol in unsigned:
         if symbol == ".":
             dots_count += 1
             if dots_count > 1:
-                return None
+                is_valid = False
         elif not symbol.isdigit():
-            return None
+            is_valid = False
 
     if unsigned == ".":
-        return None
+        is_valid = False
 
     parts = unsigned.split(".")
-    if len(parts) == 2 and (parts[0] == "" or parts[1] == ""):
+    if len(parts) == _CATEGORY_PARTS_COUNT and (parts[0] == "" or parts[1] == ""):
+        is_valid = False
+
+    if not is_valid:
         return None
 
     return float(normalized)
@@ -180,13 +187,12 @@ def parse_amount(raw_amount: str) -> float | None:
 
 def is_valid_category(category_name: str) -> bool:
     parts = category_name.split(CATEGORY_SEP)
-    if len(parts) != 2:
+    if len(parts) != _CATEGORY_PARTS_COUNT:
         return False
     common_category, target_category = parts
     if common_category not in EXPENSE_CATEGORIES:
         return False
     return target_category in EXPENSE_CATEGORIES[common_category]
-
 
 def parse_date_to_tuple(date_str: str) -> tuple[int, int, int] | None:
     date_tuple = extract_date(date_str)
@@ -220,6 +226,66 @@ def format_detail_amount(amount: float) -> str:
 
     return f"{rounded:.2f}"
 
+def _extract_tx_tuple(tx: dict[str, object]) -> tuple[int, int, int] | None:
+    tx_dt_raw = tx.get("date")
+    if not isinstance(tx_dt_raw, tuple) or len(tx_dt_raw) != _DATE_TUPLE_LEN:
+        return None
+
+    tx_day, tx_month, tx_year = tx_dt_raw
+    if not (
+        isinstance(tx_day, int)
+        and isinstance(tx_month, int)
+        and isinstance(tx_year, int)
+    ):
+        return None
+
+    return tx_year, tx_month, tx_day
+
+
+def _extract_tx_amount(tx: dict[str, object]) -> float | None:
+    raw_amount = tx.get("amount")
+    if not isinstance(raw_amount, int | float):
+        return None
+    return float(raw_amount)
+
+
+def _update_stats_by_transaction(
+    tx: dict[str, object],
+    dt: tuple[int, int, int],
+    report_tuple: tuple[int, int, int],
+    total_capital: float,
+    month_income: float,
+    month_expenses: float,
+    expenses_by_cat: dict[str, float],
+) -> tuple[float, float, float]:
+    tx_tuple = _extract_tx_tuple(tx)
+    if tx_tuple is None or tx_tuple > report_tuple:
+        return total_capital, month_income, month_expenses
+
+    amount = _extract_tx_amount(tx)
+    if amount is None:
+        return total_capital, month_income, month_expenses
+
+    tx_year, tx_month, _ = tx_tuple
+    is_same_month = tx_year == dt[2] and tx_month == dt[1]
+    tx_type = tx.get("type")
+
+    if tx_type == "income":
+        total_capital += amount
+        if is_same_month:
+            month_income += amount
+    elif tx_type == "cost":
+        total_capital -= amount
+        if is_same_month:
+            month_expenses += amount
+            raw_category = tx.get("category")
+            if isinstance(raw_category, str):
+                cat_name = get_target_category_name(raw_category)
+                expenses_by_cat[cat_name] = (
+                    expenses_by_cat.get(cat_name, _FLOAT_ZERO) + amount
+                )
+
+    return total_capital, month_income, month_expenses
 
 def stats_handler(report_date: str) -> str:
     dt = extract_date(report_date)
@@ -237,46 +303,15 @@ def stats_handler(report_date: str) -> str:
         if not tx:
             continue
 
-        tx_dt_raw = tx.get("date")
-        if not isinstance(tx_dt_raw, tuple) or len(tx_dt_raw) != _DATE_TUPLE_LEN:
-            continue
-
-        tx_day = tx_dt_raw[0]
-        tx_month = tx_dt_raw[1]
-        tx_year = tx_dt_raw[2]
-
-        if not (
-            isinstance(tx_day, int)
-            and isinstance(tx_month, int)
-            and isinstance(tx_year, int)
-        ):
-            continue
-
-        tx_tuple = (tx_year, tx_month, tx_day)
-
-        if tx_tuple > report_tuple:
-            continue
-
-        raw_amount = tx.get("amount")
-        if not isinstance(raw_amount, int | float):
-            continue
-        amount = float(raw_amount)
-
-        tx_type = tx.get("type")
-        if tx_type == "income":
-            total_capital += amount
-            if tx_year == dt[2] and tx_month == dt[1]:
-                month_income += amount
-        elif tx_type == "cost":
-            total_capital -= amount
-            if tx_year == dt[2] and tx_month == dt[1]:
-                month_expenses += amount
-                raw_category = tx.get("category")
-                if isinstance(raw_category, str):
-                    cat_name = get_target_category_name(raw_category)
-                    expenses_by_cat[cat_name] = (
-                        expenses_by_cat.get(cat_name, _FLOAT_ZERO) + amount
-                    )
+        total_capital, month_income, month_expenses = _update_stats_by_transaction(
+            tx,
+            dt,
+            report_tuple,
+            total_capital,
+            month_income,
+            month_expenses,
+            expenses_by_cat,
+        )
 
     result_value = month_income - month_expenses
     result_type = "profit" if result_value >= 0 else "loss"
@@ -297,7 +332,6 @@ def stats_handler(report_date: str) -> str:
 
     return "\n".join(lines)
 
-
 def handle_income_command(parts: list[str]) -> str:
     if len(parts) != _INCOME_CMD_WORDS:
         return UNKNOWN_COMMAND_MSG
@@ -315,27 +349,26 @@ def handle_income_command(parts: list[str]) -> str:
 
 
 def handle_cost_command(parts: list[str]) -> str:
+    result = UNKNOWN_COMMAND_MSG
+
     if len(parts) == _COST_CATEGORIES_WORDS and parts[1] == "categories":
-        return cost_categories_handler()
+        result = cost_categories_handler()
+    elif len(parts) == _COST_PURCHASE_WORDS:
+        category_name = parts[1]
+        amount = parse_amount(parts[2])
 
-    if len(parts) != _COST_PURCHASE_WORDS:
-        return UNKNOWN_COMMAND_MSG
+        if amount is None:
+            result = UNKNOWN_COMMAND_MSG
+        elif amount <= 0:
+            result = NONPOSITIVE_VALUE_MSG
+        elif extract_date(parts[3]) is None:
+            result = INCORRECT_DATE_MSG
+        elif not is_valid_category(category_name):
+            result = f"{NOT_EXISTS_CATEGORY}\n{cost_categories_handler()}"
+        else:
+            result = cost_handler(category_name, amount, parts[3])
 
-    category_name = parts[1]
-    amount = parse_amount(parts[2])
-    if amount is None:
-        return UNKNOWN_COMMAND_MSG
-    if amount <= 0:
-        return NONPOSITIVE_VALUE_MSG
-
-    if extract_date(parts[3]) is None:
-        return INCORRECT_DATE_MSG
-
-    if not is_valid_category(category_name):
-        return f"{NOT_EXISTS_CATEGORY}\n{cost_categories_handler()}"
-
-    return cost_handler(category_name, amount, parts[3])
-
+    return result
 
 def handle_stats_command(parts: list[str]) -> str:
     if len(parts) != _STATS_CMD_WORDS:
