@@ -152,8 +152,15 @@ def parse_amount(raw_amount: str) -> float | None:
     if not normalized:
         return None
 
+    if normalized[0] == "-":
+        unsigned = normalized[1:]
+        if not unsigned:
+            return None
+    else:
+        unsigned = normalized
+
     dots_count = 0
-    for symbol in normalized:
+    for symbol in unsigned:
         if symbol == ".":
             dots_count += 1
             if dots_count > 1:
@@ -161,10 +168,10 @@ def parse_amount(raw_amount: str) -> float | None:
         elif not symbol.isdigit():
             return None
 
-    if normalized == ".":
+    if unsigned == ".":
         return None
 
-    parts = normalized.split(".")
+    parts = unsigned.split(".")
     if len(parts) == 2 and (parts[0] == "" or parts[1] == ""):
         return None
 
@@ -247,7 +254,7 @@ def stats_handler(report_date: str) -> str:
 
         tx_tuple = (tx_year, tx_month, tx_day)
 
-        if tx_tuple >= report_tuple:
+        if tx_tuple > report_tuple:
             continue
 
         raw_amount = tx.get("amount")
@@ -360,4 +367,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
