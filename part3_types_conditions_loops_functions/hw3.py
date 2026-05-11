@@ -253,39 +253,39 @@ def _update_stats_by_transaction(
     tx: dict[str, object],
     dt: tuple[int, int, int],
     report_tuple: tuple[int, int, int],
-    total_capital: float,
-    month_income: float,
-    month_expenses: float,
-    expenses_by_cat: dict[str, float],
-) -> tuple[float, float, float]:
+    stats: dict[str, object],
+) -> None:
     tx_tuple = _extract_tx_tuple(tx)
     if tx_tuple is None or tx_tuple > report_tuple:
-        return total_capital, month_income, month_expenses
+        return
 
     amount = _extract_tx_amount(tx)
     if amount is None:
-        return total_capital, month_income, month_expenses
+        return
 
     tx_year, tx_month, _ = tx_tuple
     is_same_month = tx_year == dt[2] and tx_month == dt[1]
     tx_type = tx.get("type")
 
     if tx_type == "income":
-        total_capital += amount
+        stats["total_capital"] = float(stats["total_capital"]) + amount
         if is_same_month:
-            month_income += amount
+            stats["month_income"] = float(stats["month_income"]) + amount
+
     elif tx_type == "cost":
-        total_capital -= amount
+        stats["total_capital"] = float(stats["total_capital"]) - amount
         if is_same_month:
-            month_expenses += amount
+            stats["month_expenses"] = float(stats["month_expenses"]) + amount
             raw_category = tx.get("category")
+
             if isinstance(raw_category, str):
                 cat_name = get_target_category_name(raw_category)
-                expenses_by_cat[cat_name] = (
-                    expenses_by_cat.get(cat_name, _FLOAT_ZERO) + amount
-                )
+                expenses_by_cat = stats["expenses_by_cat"]
 
-    return total_capital, month_income, month_expenses
+                if isinstance(expenses_by_cat, dict):
+                    expenses_by_cat[cat_name] = (
+                        float(expenses_by_cat.get(cat_name, _FLOAT_ZERO)) + amount
+                    )
 
 def stats_handler(report_date: str) -> str:
     dt = extract_date(report_date)
@@ -294,24 +294,28 @@ def stats_handler(report_date: str) -> str:
 
     report_tuple = (dt[2], dt[1], dt[0])
 
-    total_capital = _FLOAT_ZERO
-    month_income = _FLOAT_ZERO
-    month_expenses = _FLOAT_ZERO
-    expenses_by_cat: dict[str, float] = {}
+    stats: dict[str, object] = {
+        "total_capital": _FLOAT_ZERO,
+        "month_income": _FLOAT_ZERO,
+        "month_expenses": _FLOAT_ZERO,
+        "expenses_by_cat": {},
+    }
 
     for tx in financial_transactions_storage:
         if not tx:
             continue
 
-        total_capital, month_income, month_expenses = _update_stats_by_transaction(
+        _update_stats_by_transaction(
             tx,
             dt,
             report_tuple,
-            total_capital,
-            month_income,
-            month_expenses,
-            expenses_by_cat,
+            stats,
         )
+
+    total_capital = float(stats["total_capital"])
+    month_income = float(stats["month_income"])
+    month_expenses = float(stats["month_expenses"])
+    expenses_by_cat = stats["expenses_by_cat"]
 
     result_value = month_income - month_expenses
     result_type = "profit" if result_value >= 0 else "loss"
@@ -326,9 +330,9 @@ def stats_handler(report_date: str) -> str:
         "Details (category: amount):",
     ]
 
-    if expenses_by_cat:
+    if isinstance(expenses_by_cat, dict) and expenses_by_cat:
         for index, (name, value) in enumerate(sorted(expenses_by_cat.items()), start=1):
-            lines.append(f"{index}. {name}: {format_detail_amount(value)}")
+            lines.append(f"{index}. {name}: {format_detail_amount(float(value))}")
 
     return "\n".join(lines)
 
