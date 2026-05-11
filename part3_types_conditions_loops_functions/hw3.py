@@ -72,11 +72,7 @@ def _has_valid_date_part_lengths(
     month_str: str,
     year_str: str,
 ) -> bool:
-    return (
-        len(day_str) == _DAY_PART_LEN
-        and len(month_str) == _MONTH_PART_LEN
-        and len(year_str) == _YEAR_PART_LEN
-    )
+    return len(day_str) == _DAY_PART_LEN and len(month_str) == _MONTH_PART_LEN and len(year_str) == _YEAR_PART_LEN
 
 
 def _has_only_digit_date_parts(
@@ -202,10 +198,7 @@ def _has_valid_amount_chars(unsigned_amount: str) -> bool:
 
 def _has_valid_amount_parts(unsigned_amount: str) -> bool:
     parts = unsigned_amount.split(".")
-    has_empty_decimal_part = (
-        len(parts) == _CATEGORY_PARTS_COUNT
-        and "" in parts
-    )
+    has_empty_decimal_part = len(parts) == _CATEGORY_PARTS_COUNT and "" in parts
     return unsigned_amount != "." and not has_empty_decimal_part
 
 
@@ -301,11 +294,7 @@ def _is_valid_tx_date_tuple(
     tx_month: object,
     tx_year: object,
 ) -> bool:
-    return (
-        isinstance(tx_day, int)
-        and isinstance(tx_month, int)
-        and isinstance(tx_year, int)
-    )
+    return isinstance(tx_day, int) and isinstance(tx_month, int) and isinstance(tx_year, int)
 
 
 def _extract_tx_amount(tx: dict[str, object]) -> float | None:
@@ -329,8 +318,9 @@ def _is_same_month(
 
 def _apply_income_transaction(
     amount: float,
-    is_same_month: bool,
     totals: tuple[float, float, float],
+    *,
+    is_same_month: bool,
 ) -> tuple[float, float, float]:
     total_capital, month_income, month_expenses = totals
     total_capital += amount
@@ -344,9 +334,10 @@ def _apply_income_transaction(
 def _apply_cost_transaction(
     tx: dict[str, object],
     amount: float,
-    is_same_month: bool,
     totals: tuple[float, float, float],
     expenses_by_cat: dict[str, float],
+    *,
+    is_same_month: bool,
 ) -> tuple[float, float, float]:
     total_capital, month_income, month_expenses = totals
     total_capital -= amount
@@ -407,9 +398,9 @@ def _update_stats_by_valid_transaction(
         updated_totals = _apply_transaction_amount(
             tx,
             amount,
-            is_same_month,
             totals,
             expenses_by_cat,
+            is_same_month=is_same_month,
         )
 
     return updated_totals
@@ -418,22 +409,27 @@ def _update_stats_by_valid_transaction(
 def _apply_transaction_amount(
     tx: dict[str, object],
     amount: float,
-    is_same_month: bool,
     totals: tuple[float, float, float],
     expenses_by_cat: dict[str, float],
+    *,
+    is_same_month: bool,
 ) -> tuple[float, float, float]:
     tx_type = tx.get("type")
     updated_totals = totals
 
     if tx_type == "income":
-        updated_totals = _apply_income_transaction(amount, is_same_month, totals)
+        updated_totals = _apply_income_transaction(
+            amount,
+            totals,
+            is_same_month=is_same_month,
+        )
     elif tx_type == "cost":
         updated_totals = _apply_cost_transaction(
             tx,
             amount,
-            is_same_month,
             totals,
             expenses_by_cat,
+            is_same_month=is_same_month,
         )
 
     return updated_totals
