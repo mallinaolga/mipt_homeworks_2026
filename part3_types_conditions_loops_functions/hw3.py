@@ -72,7 +72,22 @@ def _has_valid_date_part_lengths(
     month_str: str,
     year_str: str,
 ) -> bool:
-    return len(day_str) == _DAY_PART_LEN and len(month_str) == _MONTH_PART_LEN and len(year_str) == _YEAR_PART_LEN
+    date_parts = (
+        day_str,
+        month_str,
+        year_str,
+    )
+    expected_lengths = (
+        _DAY_PART_LEN,
+        _MONTH_PART_LEN,
+        _YEAR_PART_LEN,
+    )
+
+    for date_part, expected_length in zip(date_parts, expected_lengths, strict=True):
+        if len(date_part) != expected_length:
+            return False
+
+    return True
 
 
 def _has_only_digit_date_parts(
@@ -294,7 +309,14 @@ def _is_valid_tx_date_tuple(
     tx_month: object,
     tx_year: object,
 ) -> bool:
-    return isinstance(tx_day, int) and isinstance(tx_month, int) and isinstance(tx_year, int)
+    return all(
+        isinstance(tx_part, int)
+        for tx_part in (
+            tx_day,
+            tx_month,
+            tx_year,
+        )
+    )
 
 
 def _extract_tx_amount(tx: dict[str, object]) -> float | None:
