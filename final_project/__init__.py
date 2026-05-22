@@ -1,3 +1,0 @@
-"""
-GigaVibeMiptCode final project package.
-"""
