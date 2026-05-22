@@ -5,9 +5,9 @@ from typing import Any, Final, cast
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from config import Config, load_config, validate_config
-from context_manager import ContextManager
-from file_utils import get_chunks, process_file_tags
+from src.config import Config, load_config, validate_config
+from src.context_manager import ContextManager
+from src.file_utils import get_chunks, process_file_tags
 
 EXIT_COMMAND: Final[str] = r'\q'
 RESET_COMMAND: Final[str] = '/reset'
