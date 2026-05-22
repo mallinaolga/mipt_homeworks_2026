@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 
 
 @dataclass
@@ -20,7 +21,7 @@ def _read_yaml_config(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
         return {}
 
-    with open(path, "r", encoding="utf-8") as file:
+    with open(path, 'r', encoding='utf-8') as file:
         data = yaml.safe_load(file)
 
     if not isinstance(data, dict):
@@ -95,39 +96,41 @@ def _get_float_value(
 
 
 def load_config() -> Config:
-    config_data = _read_yaml_config("config.yaml")
+    load_dotenv()
+
+    config_data = _read_yaml_config('config.yaml')
 
     return Config(
-        api_key=_get_str_value("API_KEY", config_data, "api_key", ""),
-        api_host=_get_str_value("API_HOST", config_data, "api_host", ""),
+        api_key=_get_str_value('API_KEY', config_data, 'api_key', ''),
+        api_host=_get_str_value('API_HOST', config_data, 'api_host', ''),
         limit_messages=_get_int_value(
-            "LIMIT_MESSAGES",
+            'LIMIT_MESSAGES',
             config_data,
-            "limit_messages",
+            'limit_messages',
             10,
         ),
         limit_chars=_get_int_value(
-            "LIMIT_CHARS",
+            'LIMIT_CHARS',
             config_data,
-            "limit_chars",
+            'limit_chars',
             8000,
         ),
         temperature=_get_float_value(
-            "TEMPERATURE",
+            'TEMPERATURE',
             config_data,
-            "temperature",
+            'temperature',
             0.7,
         ),
         system_prompt=_get_optional_str_value(
-            "SYSTEM_PROMPT",
+            'SYSTEM_PROMPT',
             config_data,
-            "system_prompt",
+            'system_prompt',
         ),
         model_name=_get_str_value(
-            "MODEL_NAME",
+            'MODEL_NAME',
             config_data,
-            "model_name",
-            "gpt-4o-mini",
+            'model_name',
+            'gpt-4o-mini',
         ),
     )
 
@@ -136,25 +139,25 @@ def validate_config(cfg: Config) -> None:
     errors: list[str] = []
 
     if not cfg.api_key:
-        errors.append("Не задан API_KEY или api_key в config.yaml.")
+        errors.append('Не задан API_KEY или api_key в config.yaml.')
 
     if not cfg.api_host:
-        errors.append("Не задан API_HOST или api_host в config.yaml.")
+        errors.append('Не задан API_HOST или api_host в config.yaml.')
 
     if cfg.limit_messages <= 0:
-        errors.append("limit_messages должен быть положительным числом.")
+        errors.append('limit_messages должен быть положительным числом.')
 
     if cfg.limit_chars <= 0:
-        errors.append("limit_chars должен быть положительным числом.")
+        errors.append('limit_chars должен быть положительным числом.')
 
     if not 0 <= cfg.temperature <= 2:
-        errors.append("temperature должен быть в диапазоне от 0 до 2.")
+        errors.append('temperature должен быть в диапазоне от 0 до 2.')
 
     if not cfg.model_name:
-        errors.append("model_name не может быть пустым.")
+        errors.append('model_name не может быть пустым.')
 
     if errors:
-        print("Ошибка конфигурации:")
+        print('Ошибка конфигурации:')
         for error in errors:
-            print(f"- {error}")
+            print(f'- {error}')
         raise SystemExit(1)

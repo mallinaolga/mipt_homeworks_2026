@@ -1,18 +1,16 @@
 from typing import Final
 
-ROLE_KEY: Final[str] = "role"
-CONTENT_KEY: Final[str] = "content"
+ROLE_KEY: Final[str] = 'role'
+CONTENT_KEY: Final[str] = 'content'
 
-SYSTEM_ROLE: Final[str] = "system"
-USER_ROLE: Final[str] = "user"
-ASSISTANT_ROLE: Final[str] = "assistant"
+SYSTEM_ROLE: Final[str] = 'system'
+USER_ROLE: Final[str] = 'user'
+ASSISTANT_ROLE: Final[str] = 'assistant'
 
 Message = dict[str, str]
 
 
 class ContextManager:
-
-
     def __init__(
         self,
         limit_messages: int,
@@ -33,7 +31,7 @@ class ContextManager:
 
     def add_message(self, role: str, content: str) -> None:
         if role not in {SYSTEM_ROLE, USER_ROLE, ASSISTANT_ROLE}:
-            raise ValueError(f"Неизвестная роль сообщения: {role}")
+            raise ValueError(f'Неизвестная роль сообщения: {role}')
 
         if len(content) > self.limit_chars:
             content = content[-self.limit_chars :]
