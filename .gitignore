@@ -144,6 +144,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local config with secrets
+config.yaml
+config.local.yaml
+
 # Spyder project settings
 .spyderproject
 .spyproject
